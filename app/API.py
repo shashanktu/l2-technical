@@ -13,8 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from openpyxl import Workbook, load_workbook
 from pydantic import BaseModel
 from azure.storage.blob import BlobClient
-import pandas as pd
 from io import BytesIO
+import json
 
 # Your SAS URL to the blob
 sas_url = "https://gaigkyc.blob.core.windows.net/l2-technical/l2-technical_details.xlsx?sp=racw&st=2025-09-29T05:53:30Z&se=2026-12-03T14:08:30Z&sv=2024-11-04&sr=b&sig=6GnCcdMaPI4Tr805zc4xhTG5S%2B8gL9CcvxjlXkE15Yc%3D"
@@ -215,30 +215,29 @@ def add_data_to_excel(new_data: InterviewData):
     new_data should be a Pydantic model with interview data
     """
     try:
+        from openpyxl import load_workbook
+        
         # Download current data
         blob_data = blob_client.download_blob().readall()
-        df = pd.read_excel(BytesIO(blob_data))
+        
+        # Load workbook directly
+        wb = load_workbook(BytesIO(blob_data))
+        ws = wb.active
         
         # Convert Pydantic model to dictionary
         data_dict = new_data.model_dump()
         
-        # Create new row with proper column mapping
-        new_row_data = {
-            "Interviewee Email": data_dict["interviewee_email"],
-            "Candidate Name": data_dict["candidate_name"], 
-            "Job Role": data_dict["job_role"],
-            "iMocha Score": data_dict["imocha_score"]
-        }
+        # Append new row
+        ws.append([
+            data_dict["interviewee_email"],
+            data_dict["candidate_name"],
+            data_dict["job_role"],
+            data_dict["imocha_score"]
+        ])
         
-        # Add new row
-        new_row = pd.DataFrame([new_row_data])
-        df = pd.concat([df, new_row], ignore_index=True)
-        
-        # Convert to Excel bytes
+        # Save to buffer
         excel_buffer = BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Interview_Data')
-        
+        wb.save(excel_buffer)
         excel_buffer.seek(0)
         
         # Upload updated file

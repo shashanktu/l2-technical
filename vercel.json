@@ -17,7 +17,8 @@
   },
   "functions": {
     "app/API.py": {
-      "runtime": "python3.12"
+      "runtime": "python3.12",
+      "maxDuration": 10
     }
   }
 }
